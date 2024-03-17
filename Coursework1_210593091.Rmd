@@ -1,0 +1,163 @@
+---
+title: "TS ANALYSIS MB"
+author: "Manveen Bindra"
+date: "2024-03-17"
+output: html_document
+---
+
+# Introduction
+
+This report presents a time series analysis of CO2 data using Meta's Prophet forecasting system.The idea of this is , to understand the time series and to determine whether there is a relation between the components, and to allow us to then forecast co2 levels in the future. 
+
+## Purpose of the Project
+
+The goal of this project is to forecast future CO2 levels based on historical data and to explore deterministic trends, seasonality,residual noise and patterns in the data. The trend component of the CO2 data set could represent the overall increase or decrease in atmospheric CO2 concentrations over time , which could have occurred due to various circumstances such as deforestation, or increased levels of vehicle usage.Furthermore the seasonality obtained in the data, may capture cyclic patterns, which are perhaps reoccurring every year or so. This could also be due to many reasons, such as weather changes.A time series allows us to observe any residual noise that be present within the data set and will help to determine our understanding.
+
+# Analysis
+Before analyzing the data set, I will provide you with the steps taken in R , to allow us to gather the data to plot the time series and alllow forecasting.
+
+## Load Libraries and Data
+
+```{r load_libraries_and_data, echo=TRUE}
+# Load necessary libraries
+library(prophet)
+library(zoo)
+
+# Load CO2 data
+data(co2)
+# Access the times in the CO2 time series
+ts_times <- time(co2)
+
+# Convert times to a vector of dates using yearmon() from the zoo library
+times_as_dates <- zoo::as.yearmon(ts_times)
+
+# Create a dataframe with timestamps and CO2 values
+co2_data <- data.frame(ds = times_as_dates, y = co2)
+
+# Fit Prophet model to CO2 data
+prophet_model <- prophet(co2_data)
+
+# Create future dates for forecasting
+future_dates <- make_future_dataframe(prophet_model, periods = 8)
+
+# Make predictions
+forecast <- predict(prophet_model, future_dates)
+
+# Plot historical CO2 data and forecast
+plot(prophet_model, forecast, main = "Historical CO2 Levels and Forecast")
+```
+
+
+### Historical CO2 Levels and Forecast
+From observing the plotted graph, it can be interpreted that there is a positive correlation between CO2 emissions and time, as time progresses, CO2 emissions tend to increase.There is also a degree of fluctuations throughout the data which could be due to seasonal variations that occur in the short term, this may include natural processes such as photosynthesis and respiration. This time series could be described using an additive model as the seasonal fluctuations are constant in size over time.
+
+
+# Linear Regression Analysis
+
+To gain a better understanding of the growth pattern of the CO2 series, we can fit a linear regression model to the data. This will allow us to estimate the rate of change in CO2 levels over time.
+
+```{r linear_regression, echo=TRUE}
+# Fit linear regression model to CO2 data
+lm_model <- lm(y ~ ds, data = co2_data)
+
+# Summary of the linear regression model
+summary(lm_model)
+```
+
+Overall, the linear regression model appears to provide a highly significant and well-fitting representation of the relationship between time and CO2 levels in your data set. The estimated slope coefficient indicates a positive relationship, suggesting that CO2 levels have been increasing over time, consistent with expectations based on the observed trends in atmospheric CO2 concentrations.
+
+# Additional Visualizations
+Following this analysis, we can now decompose the time series to break down several componments.
+
+## Seasonal Decomposition
+
+```{r seasonal_decomposition, echo=FALSE, fig.width=8, fig.height=6}
+# Perform seasonal decomposition
+seasonal_decomp <- decompose(co2)
+
+# Plot seasonal decomposition
+plot(seasonal_decomp)
+```
+
+The plot above shows the initial time series (observed), the estimated trend component (trend), the estimated seasonal component (seasonal), the estimated irregular component (random). We see that the estimated trend component shows a steady increase over the time period of 1959 to 1998 starting from approximately 300 emissions to 365. Looking at seasonality, the repeating short time cycle shows high levels of fluctuation however these are constant. From the random observation it can be said that levels of residual noise were quite drastic to separate itself from the linear trend. 
+
+## Boxplot of CO2 Levels by Month
+
+In this section, we are going to zoom into our time series and look at its monthly data, by creating boxplots to help with this analysis.
+
+```{r boxplot_co2_month, echo=FALSE, fig.width=8, fig.height=6}
+# Extract month from timestamps
+months <- as.numeric(format(co2_data$ds, "%m"))
+
+# Create boxplot of CO2 levels by month
+boxplot(co2_data$y ~ months, main = "Boxplot of CO2 Levels by Month", xlab = "Month", ylab = "CO2 Levels", col = "lightgreen")
+```
+
+From our analysis, it can be said that the median per month doesn't change around too much. The stability of the median across different months suggests a relatively consistent central tendency in the CO2 levels throughout the year. While the stable median is notable, it may also prompt further investigation into why CO2 levels remain relatively consistent across months. This could involve exploring external factors or conducting additional analysis to understand underlying patterns.Additionally, it's important to consider whether there are any outliers or extreme values that could be influencing the median. Outliers could potentially skew the median and warrant further investigation.The box plots shift upwards slightly during months 4-6.The upward shift in CO2 levels during months 4-6 and a downward trend in other months may suggest seasonal variation in CO2 levels. This could be due to various factors such as changes in environmental conditions, human activities, or natural processes.The normal distribution of CO2 levels suggests that the data tend to cluster around the mean, with approximately equal numbers of values falling on either side of the mean.
+
+
+
+# Summary Statistics
+
+## Summary of CO2 Data
+
+```{r summary_co2_data, echo=FALSE}
+# Generate summary statistics of CO2 data
+summary_co2 <- summary(co2_data)
+
+# Print summary statistics
+summary_co2
+```
+
+The summary above shows CO2 level measurements recorded over a span from 1959 to 1998. The date stamp variable ('ds') ranges from the earliest record in 1959 to the latest in 1998, with a median date of 1978. The CO2 levels ('y') exhibit variability, ranging from a minimum of 313.2 to a maximum of 366.8 parts per million (ppm). The median CO2 level is 335.2 ppm, with 25% of the observations falling below 323.5 ppm and 75% below 350.3 ppm. These statistics provide insight into the distribution of the CO2 data allowing us to further observe and understand patterns.
+
+
+# We can consider different time frames
+
+Time series data can obtain different patterns and trends depending on the time frame. By examining the data at different intervals, we can gain insights into both short-term fluctuations and long-term trends.
+
+## Analysing Monthly Trends
+
+```{r monthly_trends, echo=FALSE}
+# Convert co2 data to time series format
+co2_ts <- ts(co2, frequency = 12)
+
+# Aggregate CO2 data to monthly intervals
+co2_monthly <- aggregate(co2_ts, nfrequency = 12, FUN = mean)
+
+# Fit Prophet model to monthly data
+prophet_model_monthly <- prophet(data.frame(ds = time(co2_monthly), y = co2_monthly))
+
+# Make predictions for monthly data
+forecast_monthly <- predict(prophet_model_monthly)
+
+# Plot forecast for monthly data
+plot(prophet_model_monthly, forecast_monthly)
+```
+
+When analyzing monthly trends in CO2 levels, the plot generated from the Prophet model illustrates both historical data and forecasted values. The line represents the predicted  of CO2 levels based on the historical pattern observed in the monthly data. The dotted values are close and compact in this spread. This forecast allows us to predict potential changes in CO2 levels over time, providing valuable information to scientists and people within the environment sector in understanding and planning around environmental impacts and climate change
+
+## Exploring Daily Variations
+
+```{r daily_variations, echo=FALSE}
+# Subset CO2 data to daily intervals
+co2_daily <- window(co2, start = start(co2), end = start(co2) + 30)
+
+# Convert CO2 daily data to time series format (assuming daily frequency)
+co2_daily_ts <- ts(co2_daily, frequency = 12)
+
+# Fit Prophet model to daily data
+prophet_model_daily <- prophet(data.frame(ds = time(co2_daily_ts), y = as.numeric(co2_daily_ts)))
+
+# Make predictions for daily data
+forecast_daily <- predict(prophet_model_daily)
+
+# Plot forecast for daily data
+plot(prophet_model_daily, forecast_daily)
+```
+
+Unlike the monthly trend analysis, the daily variations provide a more disperse view of the fluctuations in CO2 levels over a shorter time span. By fitting the Prophet model to the daily CO2 data, we can capture the patterns and periodic fluctuations in CO2 levels throughout the day, which can be seen with the plotted data points being further away from the line of best fit. These forecasted values offer insights into the expected daily changes in CO2 levels, which can be important for understanding short term fluctuations.
+
+## Summary
+
+In this project, we explored the patterns in CO2 levels against time, using Meta's forecasting system in R. As we progressed within the project, our data was formed,which then allowed us to plot this data set, along with future values with the use of the forecasting system, which helped us to capture trends, seasonality and residual noise over time and allowed us to conclude that our data reflects an additive model.We was able to explore monthly and daily variations, to look at our data through different periods, through a visual representation.The idea of time series and forecasting, especially within the data set regards to CO2 emissions, helps scientists to measure the risk and pre-plan for the safety of the future.
